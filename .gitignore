@@ -1,0 +1,14 @@
+# Build output
+target/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Local system files
+.DS_Store
+
+# Local environment values
+.env
+!.env.example

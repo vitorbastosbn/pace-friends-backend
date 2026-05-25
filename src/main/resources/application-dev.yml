@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pacefriends_dev
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+jwt:
+  secret: dev-secret-key-pace-friends-change-in-production
+  expiration: 86400
+
+google:
+  client-id-web: ${GOOGLE_CLIENT_ID_WEB:686425054825-9tj0h1frf49iki635q4amsib57r9k4bk.apps.googleusercontent.com}
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.pacefriends: DEBUG
+    org.springframework.security: DEBUG
