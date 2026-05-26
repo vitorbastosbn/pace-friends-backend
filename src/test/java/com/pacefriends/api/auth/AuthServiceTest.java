@@ -2,6 +2,7 @@ package com.pacefriends.api.auth;
 
 import com.pacefriends.api.common.exception.InvalidTokenException;
 import com.pacefriends.api.common.exception.UserConflictException;
+import com.pacefriends.api.profile.infrastructure.UserSettingsRepository;
 import com.pacefriends.api.user.User;
 import com.pacefriends.api.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,9 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private UserSettingsRepository userSettingsRepository;
+
+    @Mock
     private JwtUtil jwtUtil;
 
     @InjectMocks
@@ -48,7 +52,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void googleAuth_newUser_createsUserAndReturnsToken() {
+    void googleAuth_newUser_createsUserAndDefaultSettingsAndReturnsToken() {
         when(googleTokenVerifierService.verify(VALID_ID_TOKEN)).thenReturn(googleTokenInfo);
         when(userRepository.findByGoogleId(GOOGLE_ID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
@@ -65,6 +69,7 @@ class AuthServiceTest {
         assertThat(response.user().photoUrl()).isEqualTo(PHOTO_URL);
 
         verify(userRepository).save(any(User.class));
+        verify(userSettingsRepository).save(eq(savedUser.getId()), any(), any(), any());
     }
 
     @Test

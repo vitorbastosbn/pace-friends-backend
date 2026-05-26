@@ -31,6 +31,15 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "current_streak", nullable = false)
+    private int currentStreak = 0;
+
+    @Column(name = "total_xp", nullable = false)
+    private int totalXp = 0;
+
+    @Column(name = "current_level", nullable = false)
+    private int currentLevel = 1;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -80,6 +89,34 @@ public class User {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public int getCurrentStreak() {
+        return currentStreak;
+    }
+
+    public int getTotalXp() {
+        return totalXp;
+    }
+
+    public int getCurrentLevel() {
+        return currentLevel;
+    }
+
+    public void incrementStreak() {
+        currentStreak++;
+    }
+
+    public void resetStreak() {
+        currentStreak = 0;
+    }
+
+    public void addXp(int amount) {
+        totalXp = Math.max(0, totalXp + amount);
+    }
+
+    public void setCurrentLevel(int level) {
+        this.currentLevel = level;
     }
 
     // Builder

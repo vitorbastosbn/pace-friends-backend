@@ -1,6 +1,9 @@
 package com.pacefriends.api.auth;
 
 import com.pacefriends.api.common.exception.UserConflictException;
+import com.pacefriends.api.profile.domain.UserObjective;
+import com.pacefriends.api.profile.domain.WeeklyFrequency;
+import com.pacefriends.api.profile.infrastructure.UserSettingsRepository;
 import com.pacefriends.api.user.User;
 import com.pacefriends.api.user.UserRepository;
 import org.slf4j.Logger;
@@ -8,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Service
@@ -17,14 +21,17 @@ public class AuthService {
 
     private final GoogleTokenVerifierService googleTokenVerifierService;
     private final UserRepository userRepository;
+    private final UserSettingsRepository userSettingsRepository;
     private final JwtUtil jwtUtil;
 
     public AuthService(
             GoogleTokenVerifierService googleTokenVerifierService,
             UserRepository userRepository,
+            UserSettingsRepository userSettingsRepository,
             JwtUtil jwtUtil) {
         this.googleTokenVerifierService = googleTokenVerifierService;
         this.userRepository = userRepository;
+        this.userSettingsRepository = userSettingsRepository;
         this.jwtUtil = jwtUtil;
     }
 
@@ -70,6 +77,12 @@ public class AuthService {
                 .photoUrl(tokenInfo.picture())
                 .build();
 
-        return userRepository.save(newUser);
+        User saved = userRepository.save(newUser);
+        userSettingsRepository.save(
+                saved.getId(),
+                UserObjective.IMPROVE_FITNESS,
+                WeeklyFrequency.THREE,
+                LocalDate.now());
+        return saved;
     }
 }

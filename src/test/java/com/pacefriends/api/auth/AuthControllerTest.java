@@ -17,12 +17,13 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.pacefriends.api.auth.JwtUtil;
 import com.pacefriends.api.config.JacksonConfig;
 import com.pacefriends.api.config.SecurityConfig;
 import org.springframework.test.context.ActiveProfiles;
 
 @WebMvcTest(AuthController.class)
-@Import({SecurityConfig.class, JacksonConfig.class})
+@Import({SecurityConfig.class, JacksonConfig.class, JwtUtil.class})
 @ActiveProfiles("test")
 class AuthControllerTest {
 
