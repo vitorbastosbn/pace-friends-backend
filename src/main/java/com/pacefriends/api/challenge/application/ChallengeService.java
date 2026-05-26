@@ -9,8 +9,11 @@ import com.pacefriends.api.challenge.domain.ChallengeStatus;
 import com.pacefriends.api.challenge.domain.exception.ChallengeAccessDeniedException;
 import com.pacefriends.api.challenge.domain.exception.ChallengeAlreadyCompletedException;
 import com.pacefriends.api.challenge.domain.exception.ChallengeNotFoundException;
+import com.pacefriends.api.challenge.event.ActivityRegisteredEvent;
+import com.pacefriends.api.challenge.event.IndividualChallengeCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -27,10 +31,13 @@ public class ChallengeService {
 
     private final ChallengeRepository challengeRepository;
     private final ActivityRepository activityRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public ChallengeService(ChallengeRepository challengeRepository, ActivityRepository activityRepository) {
+    public ChallengeService(ChallengeRepository challengeRepository, ActivityRepository activityRepository,
+                             ApplicationEventPublisher eventPublisher) {
         this.challengeRepository = challengeRepository;
         this.activityRepository = activityRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -49,6 +56,7 @@ public class ChallengeService {
 
         Challenge saved = challengeRepository.save(challenge);
         log.debug("Challenge created: id={}, userId={}", saved.getId(), userId);
+        eventPublisher.publishEvent(new IndividualChallengeCreatedEvent(userId, saved.getId()));
         return saved;
     }
 
@@ -58,6 +66,14 @@ public class ChallengeService {
         return challenges.stream()
                 .map(this::buildProgress)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ChallengeProgress> getMyActiveChallenge(UUID userId) {
+        return challengeRepository.findAllByUserId(userId).stream()
+                .filter(challenge -> challenge.getStatus() == ChallengeStatus.ACTIVE)
+                .findFirst()
+                .map(this::buildProgress);
     }
 
     @Transactional(readOnly = true)
@@ -109,6 +125,7 @@ public class ChallengeService {
 
         Activity saved = activityRepository.save(activity);
         log.debug("Activity registered: id={}, challengeId={}, distanceKm={}", saved.getId(), challengeId, distanceKm);
+        eventPublisher.publishEvent(new ActivityRegisteredEvent(userId, challengeId));
 
         updateChallengeStatusIfCompleted(challenge);
 

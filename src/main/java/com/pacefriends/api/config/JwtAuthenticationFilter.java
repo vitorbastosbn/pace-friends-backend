@@ -2,6 +2,7 @@ package com.pacefriends.api.config;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.pacefriends.api.auth.JwtUtil;
+import com.pacefriends.api.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,9 +22,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserRepository userRepository) {
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -38,9 +41,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String userIdStr = decoded.getClaim("userId").asString();
                 UUID userId = UUID.fromString(userIdStr);
 
-                UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                if (userRepository.existsById(userId)) {
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             } catch (Exception ex) {
                 log.debug("JWT validation failed: {}", ex.getMessage());
             }

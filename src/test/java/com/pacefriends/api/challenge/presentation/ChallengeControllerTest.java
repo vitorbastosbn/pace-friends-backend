@@ -50,6 +50,9 @@ class ChallengeControllerTest {
     @MockBean
     private ChallengeService challengeService;
 
+    @MockBean
+    private com.pacefriends.api.user.UserRepository userRepository;
+
     private final UUID userId = UUID.randomUUID();
     private final UUID challengeId = UUID.randomUUID();
 
@@ -156,6 +159,31 @@ class ChallengeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$").isEmpty());
+    }
+
+    // --- GET /api/v1/challenges/me ---
+
+    @Test
+    void getMyChallenge_activeChallenge_returnsMobileSummaryContract() throws Exception {
+        ChallengeProgress progress = buildProgress(challengeId, userId, new BigDecimal("10.00"), new BigDecimal("20.00"));
+        when(challengeService.getMyActiveChallenge(userId)).thenReturn(java.util.Optional.of(progress));
+
+        mockMvc.perform(get("/api/v1/challenges/me")
+                        .with(authAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(challengeId.toString()))
+                .andExpect(jsonPath("$.goal_distance_km").value(50.00))
+                .andExpect(jsonPath("$.progress_km").value(10.00))
+                .andExpect(jsonPath("$.progress_percentage").value(20.00));
+    }
+
+    @Test
+    void getMyChallenge_withoutActiveChallenge_returns204() throws Exception {
+        when(challengeService.getMyActiveChallenge(userId)).thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(get("/api/v1/challenges/me")
+                        .with(authAs(userId)))
+                .andExpect(status().isNoContent());
     }
 
     // --- GET /api/v1/challenges/{id} ---

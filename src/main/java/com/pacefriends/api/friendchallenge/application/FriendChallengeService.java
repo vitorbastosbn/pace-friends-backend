@@ -2,6 +2,7 @@ package com.pacefriends.api.friendchallenge.application;
 
 import com.pacefriends.api.friendchallenge.domain.ChallengeType;
 import com.pacefriends.api.friendchallenge.domain.FriendChallenge;
+import com.pacefriends.api.friendchallenge.event.FriendChallengeFinishedEvent;
 import com.pacefriends.api.friendchallenge.domain.FriendChallengeCheckIn;
 import com.pacefriends.api.friendchallenge.domain.FriendChallengeCheckInRepository;
 import com.pacefriends.api.friendchallenge.domain.FriendChallengeParticipant;
@@ -16,6 +17,7 @@ import com.pacefriends.api.friendchallenge.domain.exception.InvalidInviteCodeExc
 import com.pacefriends.api.friendchallenge.infrastructure.FriendChallengeParticipantEntity;
 import com.pacefriends.api.friendchallenge.infrastructure.FriendChallengeParticipantJpaRepository;
 import com.pacefriends.api.user.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,16 +41,19 @@ public class FriendChallengeService {
     private final FriendChallengeCheckInRepository checkInRepository;
     private final FriendChallengeParticipantJpaRepository participantJpaRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public FriendChallengeService(FriendChallengeRepository friendChallengeRepository,
                                    FriendChallengeCheckInRepository checkInRepository,
                                    FriendChallengeParticipantJpaRepository participantJpaRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   ApplicationEventPublisher eventPublisher) {
         this.friendChallengeRepository = friendChallengeRepository;
         this.checkInRepository = checkInRepository;
         this.participantJpaRepository = participantJpaRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -106,11 +111,9 @@ public class FriendChallengeService {
 
     @Transactional
     public FriendChallenge joinChallenge(UUID userId, String inviteCode) {
-        FriendChallenge challenge = FriendChallengeLifecycle.applyTransitionIfNeeded(
+        FriendChallenge challenge = applyLifecycle(
                 friendChallengeRepository.findByInviteCode(inviteCode)
-                        .orElseThrow(InvalidInviteCodeException::new),
-                friendChallengeRepository,
-                LocalDate.now()
+                        .orElseThrow(InvalidInviteCodeException::new)
         );
 
         if (!FriendChallenge.STATUS_ACTIVE.equals(challenge.status())) {
@@ -174,8 +177,7 @@ public class FriendChallengeService {
     @Transactional
     public List<FriendChallenge> listChallenges(UUID userId) {
         return friendChallengeRepository.findAllByUserId(userId).stream()
-                .map(challenge -> FriendChallengeLifecycle.applyTransitionIfNeeded(
-                        challenge, friendChallengeRepository, LocalDate.now()))
+                .map(this::applyLifecycle)
                 .toList();
     }
 
@@ -205,14 +207,23 @@ public class FriendChallengeService {
         return new FriendChallengeDetailView(detailed, participants);
     }
 
+    private FriendChallenge applyLifecycle(FriendChallenge challenge) {
+        FriendChallenge updated = FriendChallengeLifecycle.applyTransitionIfNeeded(
+                challenge, friendChallengeRepository, LocalDate.now());
+        if (!FriendChallenge.STATUS_FINISHED.equals(challenge.status())
+                && FriendChallenge.STATUS_FINISHED.equals(updated.status())) {
+            eventPublisher.publishEvent(new FriendChallengeFinishedEvent(updated.id()));
+        }
+        return updated;
+    }
+
     private FriendChallenge loadVisibleChallenge(UUID challengeId) {
         FriendChallenge challenge = friendChallengeRepository.findById(challengeId)
                 .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId));
         if (FriendChallenge.STATUS_DELETED.equals(challenge.status())) {
             throw new FriendChallengeNotFoundException(challengeId);
         }
-        return FriendChallengeLifecycle.applyTransitionIfNeeded(
-                challenge, friendChallengeRepository, LocalDate.now());
+        return applyLifecycle(challenge);
     }
 
     private List<FriendChallengeParticipant> buildParticipantList(

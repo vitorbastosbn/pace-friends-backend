@@ -38,6 +38,9 @@ class TrailControllerTest {
     @MockBean
     private TrailService trailService;
 
+    @MockBean
+    private com.pacefriends.api.user.UserRepository userRepository;
+
     private final UUID userId = UUID.randomUUID();
 
     // --- GET /api/v1/users/{userId}/training-path ---
@@ -55,6 +58,9 @@ class TrailControllerTest {
                 .andExpect(jsonPath("$.currentLevelName").value("Iniciante"))
                 .andExpect(jsonPath("$.path.totalItems").value(10))
                 .andExpect(jsonPath("$.path.items").isArray())
+                .andExpect(jsonPath("$.path.items[0].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.path.items[0].xpReward").value(10))
+                .andExpect(jsonPath("$.path.items[1].status").value("LOCKED"))
                 .andExpect(jsonPath("$.canLevelUp").value(false));
     }
 

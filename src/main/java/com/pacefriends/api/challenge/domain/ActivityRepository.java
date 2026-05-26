@@ -17,4 +17,6 @@ public interface ActivityRepository {
     Set<LocalDate> findActivityDatesByUserInWeek(UUID userId, LocalDate weekStart, LocalDate weekEnd);
 
     int countUniqueDaysByUserInWeek(UUID userId, LocalDate weekStart, LocalDate weekEnd);
+
+    long countByUserId(UUID userId);
 }

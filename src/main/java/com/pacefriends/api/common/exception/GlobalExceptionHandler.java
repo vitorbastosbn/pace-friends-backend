@@ -182,7 +182,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleChallengeNotInAudit(ChallengeNotInAuditException ex) {
         log.warn("Challenge not in audit: {}", ex.getMessage());
         return ResponseEntity
-                .status(HttpStatus.CONFLICT)
+                .status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(new ErrorResponse("challenge_not_in_audit", ex.getMessage()));
     }
 

@@ -1,5 +1,6 @@
 package com.pacefriends.api.profile.application;
 
+import com.pacefriends.api.friendchallenge.infrastructure.FriendChallengeParticipantJpaRepository;
 import com.pacefriends.api.profile.domain.ProfileData;
 import com.pacefriends.api.profile.domain.UserObjective;
 import com.pacefriends.api.profile.domain.UserSettings;
@@ -38,6 +39,9 @@ class ProfileServiceTest {
     @Mock
     private UserSettingsRepository userSettingsRepository;
 
+    @Mock
+    private FriendChallengeParticipantJpaRepository participantRepository;
+
     @InjectMocks
     private ProfileService profileService;
 
@@ -51,6 +55,7 @@ class ProfileServiceTest {
         user = buildUser(userId);
         userSettings = buildSettings(userId, UserObjective.LOSE_WEIGHT, WeeklyFrequency.THREE,
                 LocalDate.now().minusDays(7));
+        lenient().when(participantRepository.countVictoriesForUser(any())).thenReturn(0);
     }
 
     // --- getNextMondayEffectiveFrom ---

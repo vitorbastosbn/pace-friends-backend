@@ -2,6 +2,7 @@ package com.pacefriends.api.friendchallenge.presentation;
 
 import com.pacefriends.api.friendchallenge.application.FriendChallengeDetailView;
 import com.pacefriends.api.friendchallenge.application.FriendChallengeService;
+import com.pacefriends.api.friendchallenge.application.CheckInService;
 import com.pacefriends.api.friendchallenge.domain.FriendChallenge;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -17,9 +18,12 @@ import java.util.UUID;
 public class FriendChallengeController {
 
     private final FriendChallengeService friendChallengeService;
+    private final CheckInService checkInService;
 
-    public FriendChallengeController(FriendChallengeService friendChallengeService) {
+    public FriendChallengeController(FriendChallengeService friendChallengeService,
+                                     CheckInService checkInService) {
         this.friendChallengeService = friendChallengeService;
+        this.checkInService = checkInService;
     }
 
     @PostMapping
@@ -49,12 +53,19 @@ public class FriendChallengeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<FriendChallengeResponse>> listChallenges(
+    public ResponseEntity<List<FriendChallengeListItemResponse>> listChallenges(
             @AuthenticationPrincipal UUID userId) {
 
         List<FriendChallenge> challenges = friendChallengeService.listChallenges(userId);
-        List<FriendChallengeResponse> response = challenges.stream()
-                .map(FriendChallengeResponse::from)
+        List<FriendChallengeListItemResponse> response = challenges.stream()
+                .map(challenge -> FriendChallengeListItemResponse.from(
+                        challenge,
+                        checkInService.getRanking(userId, challenge.id()).entries().stream()
+                                .filter(entry -> userId.equals(entry.userId()))
+                                .map(entry -> entry.position())
+                                .findFirst()
+                                .orElse(null)
+                ))
                 .toList();
         return ResponseEntity.ok(response);
     }
@@ -65,7 +76,11 @@ public class FriendChallengeController {
             @PathVariable UUID id) {
 
         FriendChallengeDetailView detail = friendChallengeService.getChallengeDetail(userId, id);
-        return ResponseEntity.ok(FriendChallengeDetailResponse.from(detail));
+        return ResponseEntity.ok(FriendChallengeDetailResponse.from(
+                detail,
+                checkInService.getRanking(userId, id),
+                checkInService.listCheckIns(userId, id)
+        ));
     }
 
     @DeleteMapping("/{id}/participants/me")

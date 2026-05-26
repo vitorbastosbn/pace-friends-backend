@@ -1,5 +1,6 @@
 package com.pacefriends.api.profile.application;
 
+import com.pacefriends.api.friendchallenge.infrastructure.FriendChallengeParticipantJpaRepository;
 import com.pacefriends.api.profile.domain.ProfileData;
 import com.pacefriends.api.profile.domain.ProfileStats;
 import com.pacefriends.api.profile.domain.UserObjective;
@@ -26,10 +27,14 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final FriendChallengeParticipantJpaRepository participantRepository;
 
-    public ProfileService(UserRepository userRepository, UserSettingsRepository userSettingsRepository) {
+    public ProfileService(UserRepository userRepository,
+                          UserSettingsRepository userSettingsRepository,
+                          FriendChallengeParticipantJpaRepository participantRepository) {
         this.userRepository = userRepository;
         this.userSettingsRepository = userSettingsRepository;
+        this.participantRepository = participantRepository;
     }
 
     @Transactional
@@ -47,6 +52,8 @@ public class ProfileService {
                         WeeklyFrequency.THREE,
                         LocalDate.now()));
 
+        int totalVictories = participantRepository.countVictoriesForUser(targetUserId);
+
         return ProfileData.builder()
                 .userId(user.getId())
                 .name(user.getName())
@@ -55,7 +62,7 @@ public class ProfileService {
                 .objective(settings.getObjective())
                 .weeklyFrequency(settings.getWeeklyFrequency())
                 .effectiveFrom(settings.getEffectiveFrom())
-                .stats(ProfileStats.empty())
+                .stats(new ProfileStats(0, 0, 0, totalVictories))
                 .build();
     }
 

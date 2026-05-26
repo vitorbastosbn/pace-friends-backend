@@ -116,11 +116,11 @@ public class CheckInService {
         FriendChallengeCheckIn checkIn = checkInRepository.findById(checkInId)
                 .filter(found -> found.challengeId().equals(challengeId))
                 .orElseThrow(CheckInNotFoundException::new);
-        if (FriendChallengeCheckIn.STATUS_REJECTED.equals(checkIn.status())) {
+        if (FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR.equals(checkIn.status())) {
             throw new CheckInAlreadyRejectedException();
         }
 
-        return checkInRepository.updateStatus(checkInId, FriendChallengeCheckIn.STATUS_REJECTED);
+        return checkInRepository.updateStatus(checkInId, FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR);
     }
 
     private List<RankingEntry> buildRanking(FriendChallenge challenge,

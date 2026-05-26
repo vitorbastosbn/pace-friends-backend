@@ -38,6 +38,9 @@ class CheckInControllerTest {
     @MockBean
     private CheckInService checkInService;
 
+    @MockBean
+    private com.pacefriends.api.user.UserRepository userRepository;
+
     private final UUID creatorId = UUID.randomUUID();
     private final UUID challengeId = UUID.randomUUID();
     private final UUID checkInId = UUID.randomUUID();
@@ -52,7 +55,7 @@ class CheckInControllerTest {
     void rejectCheckIn_creatorDuringAudit_returnsRejectedCheckIn() throws Exception {
         FriendChallengeCheckIn rejected = new FriendChallengeCheckIn(
                 checkInId, challengeId, creatorId, 5.0, 1800, 360,
-                LocalDate.now().minusDays(1), null, "REJECTED", OffsetDateTime.now()
+                LocalDate.now().minusDays(1), null, "REMOVED_BY_CREATOR", OffsetDateTime.now()
         );
         when(checkInService.rejectCheckIn(creatorId, challengeId, checkInId)).thenReturn(rejected);
 
@@ -61,7 +64,7 @@ class CheckInControllerTest {
                         .with(authAs(creatorId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(checkInId.toString()))
-                .andExpect(jsonPath("$.status").value("REJECTED"));
+                .andExpect(jsonPath("$.status").value("REMOVED_BY_CREATOR"));
     }
 
     @Test
@@ -77,14 +80,14 @@ class CheckInControllerTest {
     }
 
     @Test
-    void rejectCheckIn_afterAudit_returns409() throws Exception {
+    void rejectCheckIn_outsideAudit_returns422() throws Exception {
         when(checkInService.rejectCheckIn(creatorId, challengeId, checkInId))
                 .thenThrow(new ChallengeNotInAuditException());
 
         mockMvc.perform(patch("/api/v1/friend-challenges/{challengeId}/check-ins/{checkInId}/reject",
                         challengeId, checkInId)
                         .with(authAs(creatorId)))
-                .andExpect(status().isConflict())
+                .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error").value("challenge_not_in_audit"));
     }
 }

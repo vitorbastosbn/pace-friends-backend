@@ -46,4 +46,9 @@ public class ActivityRepositoryImpl implements ActivityRepository {
     public int countUniqueDaysByUserInWeek(UUID userId, LocalDate weekStart, LocalDate weekEnd) {
         return jpaRepository.countDistinctActivityDatesByUserAndWeek(userId, weekStart, weekEnd);
     }
+
+    @Override
+    public long countByUserId(UUID userId) {
+        return jpaRepository.countByUserId(userId);
+    }
 }

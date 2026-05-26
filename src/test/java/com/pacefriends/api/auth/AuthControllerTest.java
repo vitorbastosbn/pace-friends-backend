@@ -36,6 +36,9 @@ class AuthControllerTest {
     @MockBean
     private AuthService authService;
 
+    @MockBean
+    private com.pacefriends.api.user.UserRepository userRepository;
+
     @Test
     void googleAuth_validRequest_returns200WithTokenAndUser() throws Exception {
         UUID userId = UUID.randomUUID();

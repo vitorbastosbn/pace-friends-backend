@@ -5,6 +5,8 @@ import com.pacefriends.api.config.JacksonConfig;
 import com.pacefriends.api.config.SecurityConfig;
 import com.pacefriends.api.friendchallenge.application.FriendChallengeDetailView;
 import com.pacefriends.api.friendchallenge.application.FriendChallengeService;
+import com.pacefriends.api.friendchallenge.application.CheckInService;
+import com.pacefriends.api.friendchallenge.application.RankingView;
 import com.pacefriends.api.friendchallenge.domain.*;
 import com.pacefriends.api.friendchallenge.domain.exception.*;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,12 @@ class FriendChallengeControllerTest {
 
     @MockBean
     private FriendChallengeService friendChallengeService;
+
+    @MockBean
+    private CheckInService checkInService;
+
+    @MockBean
+    private com.pacefriends.api.user.UserRepository userRepository;
 
     private final UUID userId = UUID.randomUUID();
     private final UUID challengeId = UUID.randomUUID();
@@ -186,12 +194,19 @@ class FriendChallengeControllerTest {
     @Test
     void listChallenges_authenticated_returns200() throws Exception {
         when(friendChallengeService.listChallenges(userId)).thenReturn(List.of(buildChallenge()));
+        when(checkInService.getRanking(userId, challengeId)).thenReturn(new RankingView(
+                ChallengeType.DISTANCE,
+                List.of(new RankingEntry(2, userId, "Joao", 10.0, 1))
+        ));
 
         mockMvc.perform(get("/api/v1/friend-challenges")
                         .with(authAs(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].inviteCode").value("ABCD1234"));
+                .andExpect(jsonPath("$[0].start_date").exists())
+                .andExpect(jsonPath("$[0].participant_count").value(1))
+                .andExpect(jsonPath("$[0].user_role").value("CREATOR"))
+                .andExpect(jsonPath("$[0].user_rank_position").value(2));
     }
 
     @Test
@@ -216,13 +231,22 @@ class FriendChallengeControllerTest {
         );
         when(friendChallengeService.getChallengeDetail(userId, challengeId))
                 .thenReturn(new FriendChallengeDetailView(detailed, List.of(participant)));
+        when(checkInService.getRanking(userId, challengeId)).thenReturn(new RankingView(
+                ChallengeType.DISTANCE,
+                List.of(new RankingEntry(1, userId, "Joao", 12.5, 2))
+        ));
+        when(checkInService.listCheckIns(userId, challengeId)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/friend-challenges/{id}", challengeId)
                         .with(authAs(userId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.inviteCode").value("ABCD1234"))
+                .andExpect(jsonPath("$.invite_code").value("ABCD1234"))
                 .andExpect(jsonPath("$.participants").isArray())
-                .andExpect(jsonPath("$.participants[0].name").value("Joao"));
+                .andExpect(jsonPath("$.participants[0].name").value("Joao"))
+                .andExpect(jsonPath("$.ranking[0].position").value(1))
+                .andExpect(jsonPath("$.check_ins").isArray())
+                .andExpect(jsonPath("$.permissions.can_check_in").value(false))
+                .andExpect(jsonPath("$.permissions.can_delete").value(true));
     }
 
     @Test

@@ -16,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -37,6 +38,9 @@ class ChallengeServiceTest {
 
     @Mock
     private ActivityRepository activityRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private ChallengeService challengeService;
@@ -123,6 +127,28 @@ class ChallengeServiceTest {
 
         assertThat(result.get(0).getProgressKm()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(result.get(0).getProgressPct()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void getMyActiveChallenge_returnsOnlyActiveChallengeWithProgress() {
+        Challenge completed = buildChallenge(UUID.randomUUID(), userId, ChallengeStatus.COMPLETED, new BigDecimal("10.00"));
+        when(challengeRepository.findAllByUserId(userId)).thenReturn(List.of(completed, activeChallenge));
+        when(activityRepository.sumDistanceByChallengeId(challengeId)).thenReturn(new BigDecimal("15.00"));
+
+        Optional<ChallengeProgress> result = challengeService.getMyActiveChallenge(userId);
+
+        assertThat(result).isPresent();
+        assertThat(result.orElseThrow().getChallenge().getId()).isEqualTo(challengeId);
+        assertThat(result.orElseThrow().getProgressPct()).isEqualByComparingTo(new BigDecimal("30.00"));
+    }
+
+    @Test
+    void getMyActiveChallenge_withoutActiveChallenge_returnsEmpty() {
+        Challenge completed = buildChallenge(challengeId, userId, ChallengeStatus.COMPLETED, new BigDecimal("50.00"));
+        when(challengeRepository.findAllByUserId(userId)).thenReturn(List.of(completed));
+
+        assertThat(challengeService.getMyActiveChallenge(userId)).isEmpty();
+        verifyNoInteractions(activityRepository);
     }
 
     // --- getChallengeDetail ---

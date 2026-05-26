@@ -1,6 +1,9 @@
 package com.pacefriends.api.friendchallenge.presentation;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.pacefriends.api.friendchallenge.application.CheckInWithUserName;
 import com.pacefriends.api.friendchallenge.application.FriendChallengeDetailView;
+import com.pacefriends.api.friendchallenge.application.RankingView;
 import com.pacefriends.api.friendchallenge.domain.ChallengeType;
 import com.pacefriends.api.friendchallenge.domain.FriendChallenge;
 import com.pacefriends.api.friendchallenge.domain.ParticipantRole;
@@ -15,19 +18,24 @@ public record FriendChallengeDetailResponse(
         UUID id,
         String title,
         String description,
-        ChallengeType challengeType,
-        BigDecimal goalValue,
-        LocalDate startDate,
-        LocalDate endDate,
-        String inviteCode,
+        @JsonProperty("challenge_type") ChallengeType challengeType,
+        @JsonProperty("goal_value") BigDecimal goalValue,
+        @JsonProperty("start_date") LocalDate startDate,
+        @JsonProperty("end_date") LocalDate endDate,
+        @JsonProperty("invite_code") String inviteCode,
         String status,
-        int participantCount,
-        int maxParticipants,
-        ParticipantRole myRole,
-        OffsetDateTime createdAt,
-        List<ParticipantResponse> participants
+        @JsonProperty("participant_count") int participantCount,
+        @JsonProperty("max_participants") int maxParticipants,
+        @JsonProperty("user_role") ParticipantRole userRole,
+        @JsonProperty("created_at") OffsetDateTime createdAt,
+        List<ParticipantResponse> participants,
+        List<RankingEntryResponse> ranking,
+        @JsonProperty("check_ins") List<ChallengeDetailCheckInResponse> checkIns,
+        ChallengePermissionsResponse permissions
 ) {
-    public static FriendChallengeDetailResponse from(FriendChallengeDetailView view) {
+    public static FriendChallengeDetailResponse from(FriendChallengeDetailView view,
+                                                     RankingView ranking,
+                                                     List<CheckInWithUserName> checkIns) {
         FriendChallenge c = view.challenge();
         List<ParticipantResponse> participantResponses = view.participants().stream()
                 .map(ParticipantResponse::from)
@@ -46,7 +54,10 @@ public record FriendChallengeDetailResponse(
                 c.maxParticipants(),
                 c.myRole(),
                 c.createdAt(),
-                participantResponses
+                participantResponses,
+                ranking.entries().stream().map(RankingEntryResponse::from).toList(),
+                checkIns.stream().map(ChallengeDetailCheckInResponse::from).toList(),
+                ChallengePermissionsResponse.from(c)
         );
     }
 }

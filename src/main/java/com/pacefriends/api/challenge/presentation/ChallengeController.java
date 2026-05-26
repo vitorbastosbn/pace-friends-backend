@@ -49,6 +49,15 @@ public class ChallengeController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<IndividualChallengeResponse> getMyChallenge(
+            @AuthenticationPrincipal UUID userId) {
+        return challengeService.getMyActiveChallenge(userId)
+                .map(IndividualChallengeResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ChallengeProgressResponse> getChallengeDetail(
             @AuthenticationPrincipal UUID userId,

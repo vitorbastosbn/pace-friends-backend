@@ -18,7 +18,7 @@ public record GetProfileResponse(
         StatsDTO stats
 ) {
 
-    public record StatsDTO(int totalXp, int currentStreak, int achievementsUnlocked) {
+    public record StatsDTO(int totalXp, int currentStreak, int achievementsUnlocked, int totalVictories) {
     }
 
     public static GetProfileResponse from(ProfileData data) {
@@ -33,7 +33,8 @@ public record GetProfileResponse(
                 new StatsDTO(
                         data.getStats().getTotalXp(),
                         data.getStats().getCurrentStreak(),
-                        data.getStats().getAchievementsUnlocked()
+                        data.getStats().getAchievementsUnlocked(),
+                        data.getStats().getTotalVictories()
                 )
         );
     }

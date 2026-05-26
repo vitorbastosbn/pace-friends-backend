@@ -4,14 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pacefriends.api.auth.JwtUtil;
 import com.pacefriends.api.config.JacksonConfig;
 import com.pacefriends.api.config.SecurityConfig;
+import com.pacefriends.api.profile.application.DeleteAccountUseCase;
+import com.pacefriends.api.profile.application.GetPublicProfileUseCase;
 import com.pacefriends.api.profile.application.ProfileService;
 import com.pacefriends.api.profile.domain.ProfileData;
 import com.pacefriends.api.profile.domain.ProfileStats;
 import com.pacefriends.api.profile.domain.UserObjective;
 import com.pacefriends.api.profile.domain.WeeklyFrequency;
 import com.pacefriends.api.profile.domain.exception.ProfileAccessDeniedException;
+import com.pacefriends.api.profile.domain.exception.UserNotFoundException;
 import com.pacefriends.api.profile.domain.exception.UserSettingsNotFoundException;
+import com.pacefriends.api.profile.presentation.PublicProfileResponse;
 import com.pacefriends.api.streak.application.UpdateWeeklyFrequencyService;
+import com.pacefriends.api.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -27,7 +32,10 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -49,6 +57,15 @@ class UserProfileControllerTest {
 
     @MockBean
     private UpdateWeeklyFrequencyService updateWeeklyFrequencyService;
+
+    @MockBean
+    private GetPublicProfileUseCase getPublicProfileUseCase;
+
+    @MockBean
+    private DeleteAccountUseCase deleteAccountUseCase;
+
+    @MockBean
+    private UserRepository userRepository;
 
     private final UUID userId = UUID.randomUUID();
 
@@ -195,6 +212,83 @@ class UserProfileControllerTest {
                                 new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                                         userId, null, java.util.Collections.emptyList()))))
                 .andExpect(status().isBadRequest());
+    }
+
+    // --- GET /api/v1/users/{userId}/public ---
+
+    @Test
+    void getPublicProfile_userExists_returns200() throws Exception {
+        PublicProfileResponse response = new PublicProfileResponse(userId, "Test User", "https://photo.url", 3, 5);
+        when(getPublicProfileUseCase.execute(userId)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/users/{userId}/public", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId.toString()))
+                .andExpect(jsonPath("$.name").value("Test User"))
+                .andExpect(jsonPath("$.totalVictories").value(3))
+                .andExpect(jsonPath("$.achievementsUnlocked").value(5));
+    }
+
+    @Test
+    void getPublicProfile_userNotFound_returns404() throws Exception {
+        when(getPublicProfileUseCase.execute(userId)).thenThrow(new UserNotFoundException(userId));
+
+        mockMvc.perform(get("/api/v1/users/{userId}/public", userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("not_found"));
+    }
+
+    // --- DELETE /api/v1/users/{userId} ---
+
+    @Test
+    void deleteAccount_ownAccount_returns204() throws Exception {
+        doNothing().when(deleteAccountUseCase).execute(userId, userId);
+
+        mockMvc.perform(delete("/api/v1/users/{userId}", userId)
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(
+                                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                                        userId, null, java.util.Collections.emptyList()))))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteAccount_differentUser_returns403() throws Exception {
+        UUID otherUserId = UUID.randomUUID();
+        doThrow(new ProfileAccessDeniedException()).when(deleteAccountUseCase).execute(any(), eq(userId));
+
+        mockMvc.perform(delete("/api/v1/users/{userId}", userId)
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(
+                                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                                        otherUserId, null, java.util.Collections.emptyList()))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteAccount_unauthenticated_returns403() throws Exception {
+        mockMvc.perform(delete("/api/v1/users/{userId}", userId))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getProfile_totalVictoriesIncludedInStats() throws Exception {
+        ProfileData data = ProfileData.builder()
+                .userId(userId)
+                .name("Test User")
+                .email("user@example.com")
+                .photoUrl("https://photo.url")
+                .objective(UserObjective.LOSE_WEIGHT)
+                .weeklyFrequency(WeeklyFrequency.THREE)
+                .effectiveFrom(LocalDate.now())
+                .stats(new ProfileStats(100, 3, 2, 5))
+                .build();
+        when(profileService.getUserProfile(eq(userId), eq(userId))).thenReturn(data);
+
+        mockMvc.perform(get("/api/v1/users/{userId}/profile", userId)
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(
+                                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                                        userId, null, java.util.Collections.emptyList()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stats.totalVictories").value(5));
     }
 
     private ProfileData buildProfileData(UUID userId) {

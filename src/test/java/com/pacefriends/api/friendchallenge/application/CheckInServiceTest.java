@@ -221,15 +221,15 @@ class CheckInServiceTest {
         FriendChallengeCheckIn checkIn = buildCheckIn(userId, today.minusDays(1), 5.0, 1800, 360);
         FriendChallengeCheckIn rejected = new FriendChallengeCheckIn(
                 checkIn.id(), challengeId, userId, 5.0, 1800, 360,
-                today.minusDays(1), null, "REJECTED", checkIn.createdAt());
+                today.minusDays(1), null, FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR, checkIn.createdAt());
         when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
         when(checkInRepository.findById(checkIn.id())).thenReturn(Optional.of(checkIn));
-        when(checkInRepository.updateStatus(checkIn.id(), "REJECTED")).thenReturn(rejected);
+        when(checkInRepository.updateStatus(checkIn.id(), FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR)).thenReturn(rejected);
 
         FriendChallengeCheckIn result = service.rejectCheckIn(userId, challengeId, checkIn.id());
 
-        assertThat(result.status()).isEqualTo("REJECTED");
-        verify(checkInRepository).updateStatus(checkIn.id(), "REJECTED");
+        assertThat(result.status()).isEqualTo(FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR);
+        verify(checkInRepository).updateStatus(checkIn.id(), FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR);
     }
 
     @Test
@@ -261,7 +261,7 @@ class CheckInServiceTest {
                 ChallengeType.DISTANCE, BigDecimal.valueOf(50), today, FriendChallenge.STATUS_AUDIT);
         FriendChallengeCheckIn rejected = new FriendChallengeCheckIn(
                 UUID.randomUUID(), challengeId, userId, 5.0, 1800, 360,
-                today.minusDays(1), null, "REJECTED", OffsetDateTime.now());
+                today.minusDays(1), null, FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR, OffsetDateTime.now());
         when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
         when(checkInRepository.findById(rejected.id())).thenReturn(Optional.of(rejected));
 
@@ -309,7 +309,7 @@ class CheckInServiceTest {
         FriendChallengeCheckIn valid = buildCheckIn(userId, today, 5.0, 1800, 360);
         FriendChallengeCheckIn rejected = new FriendChallengeCheckIn(
                 UUID.randomUUID(), challengeId, userId, 20.0, 7200, 360,
-                today.plusDays(1), null, "REJECTED", OffsetDateTime.now());
+                today.plusDays(1), null, FriendChallengeCheckIn.STATUS_REMOVED_BY_CREATOR, OffsetDateTime.now());
         when(checkInRepository.findAllByChallengeId(challengeId)).thenReturn(List.of(valid, rejected));
 
         User user = mock(User.class);

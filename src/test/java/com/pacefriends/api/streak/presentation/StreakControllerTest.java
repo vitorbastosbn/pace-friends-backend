@@ -36,6 +36,9 @@ class StreakControllerTest {
     @MockBean
     private StreakQueryService streakQueryService;
 
+    @MockBean
+    private com.pacefriends.api.user.UserRepository userRepository;
+
     @Test
     void getStreak_authenticated_returnsProgressAndXpPayload() throws Exception {
         UUID userId = UUID.randomUUID();
