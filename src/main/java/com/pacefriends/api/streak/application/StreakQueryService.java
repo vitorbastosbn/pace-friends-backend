@@ -4,6 +4,9 @@ import com.pacefriends.api.challenge.domain.ActivityRepository;
 import com.pacefriends.api.profile.domain.UserSettings;
 import com.pacefriends.api.profile.domain.WeeklyFrequency;
 import com.pacefriends.api.profile.infrastructure.UserSettingsRepository;
+import com.pacefriends.api.streak.domain.XpCalculation;
+import com.pacefriends.api.streak.domain.WeeklyStreak;
+import com.pacefriends.api.streak.domain.WeeklyStreakRepository;
 import com.pacefriends.api.user.User;
 import com.pacefriends.api.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -13,7 +16,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -24,13 +26,16 @@ public class StreakQueryService {
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final ActivityRepository activityRepository;
+    private final WeeklyStreakRepository weeklyStreakRepository;
 
     public StreakQueryService(UserRepository userRepository,
                               UserSettingsRepository userSettingsRepository,
-                              ActivityRepository activityRepository) {
+                              ActivityRepository activityRepository,
+                              WeeklyStreakRepository weeklyStreakRepository) {
         this.userRepository = userRepository;
         this.userSettingsRepository = userSettingsRepository;
         this.activityRepository = activityRepository;
+        this.weeklyStreakRepository = weeklyStreakRepository;
     }
 
     @Transactional(readOnly = true)
@@ -48,17 +53,18 @@ public class StreakQueryService {
                 .map(WeeklyFrequency::getValue)
                 .orElse(WeeklyFrequency.THREE.getValue());
 
-        Set<LocalDate> activityDates = activityRepository.findActivityDatesByUserInWeek(userId, sunday, saturday);
-        int daysCompletedThisWeek = activityDates.size();
+        int daysCompletedThisWeek = activityRepository.countUniqueDaysByUserInWeek(userId, sunday, saturday);
         int remainingDays = Math.max(0, targetFrequency - daysCompletedThisWeek);
-        int potentialXp = targetFrequency * 10;
 
         return new StreakView(
                 user.getCurrentStreak(),
                 targetFrequency,
                 daysCompletedThisWeek,
                 remainingDays,
-                potentialXp
+                XpCalculation.forTargetFrequency(targetFrequency),
+                weeklyStreakRepository.findRecentByUserId(userId)
+                        .map(WeeklyStreak::getResult)
+                        .orElse(null)
         );
     }
 }

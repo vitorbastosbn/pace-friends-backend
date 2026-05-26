@@ -7,7 +7,8 @@ public record StreakResponse(
         int targetFrequency,
         int daysCompletedThisWeek,
         int remainingDays,
-        int potentialXp
+        XpProgressResponse xpProgress,
+        String lastResult
 ) {
     public static StreakResponse from(StreakView view) {
         return new StreakResponse(
@@ -15,7 +16,8 @@ public record StreakResponse(
                 view.targetFrequency(),
                 view.daysCompletedThisWeek(),
                 view.remainingDays(),
-                view.potentialXp()
+                XpProgressResponse.from(view.xpProgress()),
+                view.lastResult() == null ? null : view.lastResult().name()
         );
     }
 }

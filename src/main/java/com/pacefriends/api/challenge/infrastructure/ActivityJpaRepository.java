@@ -19,4 +19,7 @@ interface ActivityJpaRepository extends JpaRepository<ActivityEntity, UUID> {
 
     @Query("SELECT DISTINCT a.activityDate FROM ActivityEntity a WHERE a.userId = :userId AND a.activityDate >= :weekStart AND a.activityDate <= :weekEnd")
     Set<LocalDate> findDistinctActivityDatesByUserAndWeek(@Param("userId") UUID userId, @Param("weekStart") LocalDate weekStart, @Param("weekEnd") LocalDate weekEnd);
+
+    @Query("SELECT COUNT(DISTINCT a.activityDate) FROM ActivityEntity a WHERE a.userId = :userId AND a.activityDate >= :weekStart AND a.activityDate <= :weekEnd")
+    int countDistinctActivityDatesByUserAndWeek(@Param("userId") UUID userId, @Param("weekStart") LocalDate weekStart, @Param("weekEnd") LocalDate weekEnd);
 }

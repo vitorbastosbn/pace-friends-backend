@@ -5,9 +5,11 @@ import com.pacefriends.api.user.User;
 import com.pacefriends.api.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -20,16 +22,25 @@ public class ProcessWeeklyStreakJob {
 
     private final UserRepository userRepository;
     private final ProcessWeeklyStreakService processWeeklyStreakService;
+    private final Clock clock;
 
+    @Autowired
     public ProcessWeeklyStreakJob(UserRepository userRepository,
                                   ProcessWeeklyStreakService processWeeklyStreakService) {
-        this.userRepository = userRepository;
-        this.processWeeklyStreakService = processWeeklyStreakService;
+        this(userRepository, processWeeklyStreakService, Clock.system(ZONE));
     }
 
-    // @Scheduled(cron = "0 0 0 * * SUN", zone = "America/Sao_Paulo")
+    ProcessWeeklyStreakJob(UserRepository userRepository,
+                           ProcessWeeklyStreakService processWeeklyStreakService,
+                           Clock clock) {
+        this.userRepository = userRepository;
+        this.processWeeklyStreakService = processWeeklyStreakService;
+        this.clock = clock;
+    }
+
+    @Scheduled(cron = "0 0 0 * * SUN", zone = "America/Sao_Paulo")
     public void run() {
-        LocalDate today = LocalDate.now(ZONE);
+        LocalDate today = LocalDate.now(clock);
         log.info("Processing weekly streaks for date={}", today);
 
         List<User> users = userRepository.findAll();

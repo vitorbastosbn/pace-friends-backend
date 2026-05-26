@@ -40,7 +40,9 @@ public class FriendChallengeRepositoryImpl implements FriendChallengeRepository 
 
     @Override
     public Optional<FriendChallenge> findByInviteCode(String inviteCode) {
-        return jpaRepository.findByInviteCode(inviteCode).map(entity -> {
+        return jpaRepository.findByInviteCode(inviteCode)
+                .filter(entity -> !FriendChallenge.STATUS_DELETED.equals(entity.getStatus()))
+                .map(entity -> {
             int count = participantJpaRepository.countByFriendChallengeId(entity.getId());
             return FriendChallengeMapper.toDomain(entity, count, null);
         });
@@ -60,6 +62,7 @@ public class FriendChallengeRepositoryImpl implements FriendChallengeRepository 
                 .map(p -> jpaRepository.findById(p.getFriendChallengeId()))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .filter(entity -> !FriendChallenge.STATUS_DELETED.equals(entity.getStatus()))
                 .map(entity -> {
                     int count = participantJpaRepository.countByFriendChallengeId(entity.getId());
                     ParticipantRole myRole = participations.stream()

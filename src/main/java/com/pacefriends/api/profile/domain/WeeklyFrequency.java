@@ -18,4 +18,13 @@ public enum WeeklyFrequency {
     public int getValue() {
         return value;
     }
+
+    public static WeeklyFrequency fromValue(int value) {
+        for (WeeklyFrequency frequency : values()) {
+            if (frequency.value == value) {
+                return frequency;
+            }
+        }
+        throw new IllegalArgumentException("weeklyFrequency must be between 1 and 7");
+    }
 }

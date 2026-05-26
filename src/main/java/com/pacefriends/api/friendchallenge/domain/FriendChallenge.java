@@ -26,6 +26,7 @@ public record FriendChallenge(
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_AUDIT = "AUDIT";
     public static final String STATUS_FINISHED = "FINISHED";
+    public static final String STATUS_DELETED = "DELETED";
 
     public FriendChallenge withStatus(String nextStatus) {
         return new FriendChallenge(

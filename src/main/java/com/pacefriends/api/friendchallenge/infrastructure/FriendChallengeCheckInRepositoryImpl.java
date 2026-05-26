@@ -45,8 +45,9 @@ public class FriendChallengeCheckInRepositoryImpl implements FriendChallengeChec
     }
 
     @Override
-    public boolean existsByChallengeIdAndUserIdAndDate(UUID challengeId, UUID userId, LocalDate date) {
-        return jpaRepository.existsByFriendChallengeIdAndUserIdAndCheckInDate(challengeId, userId, date);
+    public boolean existsValidByChallengeIdAndUserIdAndDate(UUID challengeId, UUID userId, LocalDate date) {
+        return jpaRepository.existsByFriendChallengeIdAndUserIdAndCheckInDateAndStatus(
+                challengeId, userId, date, FriendChallengeCheckIn.STATUS_VALID);
     }
 
     @Override
@@ -61,6 +62,16 @@ public class FriendChallengeCheckInRepositoryImpl implements FriendChallengeChec
         entity.setStatus(status);
         FriendChallengeCheckInEntity saved = jpaRepository.save(entity);
         return toDomain(saved);
+    }
+
+    @Override
+    public void updateStatusByChallengeIdAndUserId(UUID challengeId, UUID userId, String status) {
+        jpaRepository.updateStatusByChallengeIdAndUserId(challengeId, userId, status);
+    }
+
+    @Override
+    public void updateStatusByChallengeId(UUID challengeId, String status) {
+        jpaRepository.updateStatusByChallengeId(challengeId, status);
     }
 
     private FriendChallengeCheckIn toDomain(FriendChallengeCheckInEntity entity) {

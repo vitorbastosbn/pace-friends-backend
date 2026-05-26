@@ -67,4 +67,20 @@ public class FriendChallengeController {
         FriendChallengeDetailView detail = friendChallengeService.getChallengeDetail(userId, id);
         return ResponseEntity.ok(FriendChallengeDetailResponse.from(detail));
     }
+
+    @DeleteMapping("/{id}/participants/me")
+    public ResponseEntity<Void> leaveChallenge(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID id) {
+        friendChallengeService.leaveChallenge(userId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteChallenge(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID id) {
+        friendChallengeService.deleteChallenge(userId, id);
+        return ResponseEntity.noContent().build();
+    }
 }

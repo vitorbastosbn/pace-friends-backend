@@ -1,6 +1,7 @@
 package com.pacefriends.api.streak;
 
 import com.pacefriends.api.streak.application.StreakCalculator;
+import com.pacefriends.api.streak.application.WeeklyStreakProcessor;
 import com.pacefriends.api.streak.domain.StreakResult;
 import com.pacefriends.api.user.User;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,8 @@ import java.lang.reflect.Field;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class WeeklyStreakProcessorTest {
+
+    private final WeeklyStreakProcessor processor = new WeeklyStreakProcessor();
 
     // --- StreakCalculator ---
 
@@ -35,6 +38,24 @@ class WeeklyStreakProcessorTest {
     void xpDelta_whenBroken_returnsNegativeXp() {
         int delta = StreakCalculator.xpDelta(5, StreakResult.BROKEN);
         assertThat(delta).isEqualTo(-50);
+    }
+
+    @Test
+    void processor_whenTargetMet_incrementsStreakAndAwardsXp() {
+        WeeklyStreakProcessor.ProcessingResult result = processor.process(4, 4, 2);
+
+        assertThat(result.result()).isEqualTo(StreakResult.MAINTAINED);
+        assertThat(result.streakCount()).isEqualTo(3);
+        assertThat(result.xpEarned()).isEqualTo(40);
+    }
+
+    @Test
+    void processor_whenTargetMissed_resetsStreakAndDeductsXp() {
+        WeeklyStreakProcessor.ProcessingResult result = processor.process(5, 3, 4);
+
+        assertThat(result.result()).isEqualTo(StreakResult.BROKEN);
+        assertThat(result.streakCount()).isZero();
+        assertThat(result.xpEarned()).isEqualTo(-50);
     }
 
     // --- User XP and streak mutations ---

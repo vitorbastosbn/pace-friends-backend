@@ -34,10 +34,7 @@ public class CheckInService {
     public FriendChallengeCheckIn registerCheckIn(UUID userId, UUID challengeId,
                                                    double distanceKm, int durationSeconds,
                                                    LocalDate checkInDate, String notes) {
-        FriendChallenge challenge = applyTransitionIfNeeded(
-                challengeRepository.findById(challengeId)
-                        .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId))
-        );
+        FriendChallenge challenge = loadVisibleChallenge(challengeId);
 
         if (!participantJpaRepository.existsByFriendChallengeIdAndUserId(challengeId, userId)) {
             throw new FriendChallengeAccessDeniedException();
@@ -52,7 +49,7 @@ public class CheckInService {
         }
 
         if (challenge.challengeType() == ChallengeType.CHECK_IN) {
-            if (checkInRepository.existsByChallengeIdAndUserIdAndDate(challengeId, userId, checkInDate)) {
+            if (checkInRepository.existsValidByChallengeIdAndUserIdAndDate(challengeId, userId, checkInDate)) {
                 throw new DuplicateCheckInException();
             }
         }
@@ -62,7 +59,7 @@ public class CheckInService {
         FriendChallengeCheckIn checkIn = new FriendChallengeCheckIn(
                 null, challengeId, userId,
                 distanceKm, durationSeconds, paceSecondsPerKm,
-                checkInDate, notes, "VALID", null
+                checkInDate, notes, FriendChallengeCheckIn.STATUS_VALID, null
         );
 
         return checkInRepository.save(checkIn);
@@ -70,10 +67,7 @@ public class CheckInService {
 
     @Transactional
     public List<CheckInWithUserName> listCheckIns(UUID userId, UUID challengeId) {
-        FriendChallenge challenge = applyTransitionIfNeeded(
-                challengeRepository.findById(challengeId)
-                        .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId))
-        );
+        FriendChallenge challenge = loadVisibleChallenge(challengeId);
 
         if (!participantJpaRepository.existsByFriendChallengeIdAndUserId(challengeId, userId)) {
             throw new FriendChallengeAccessDeniedException();
@@ -93,17 +87,14 @@ public class CheckInService {
 
     @Transactional
     public RankingView getRanking(UUID userId, UUID challengeId) {
-        FriendChallenge challenge = applyTransitionIfNeeded(
-                challengeRepository.findById(challengeId)
-                        .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId))
-        );
+        FriendChallenge challenge = loadVisibleChallenge(challengeId);
 
         if (!participantJpaRepository.existsByFriendChallengeIdAndUserId(challengeId, userId)) {
             throw new FriendChallengeAccessDeniedException();
         }
 
         List<FriendChallengeCheckIn> checkIns = checkInRepository.findAllByChallengeId(challengeId).stream()
-                .filter(checkIn -> "VALID".equals(checkIn.status()))
+                .filter(checkIn -> FriendChallengeCheckIn.STATUS_VALID.equals(checkIn.status()))
                 .toList();
 
         List<RankingEntry> entries = buildRanking(challenge, checkIns);
@@ -113,10 +104,7 @@ public class CheckInService {
 
     @Transactional
     public FriendChallengeCheckIn rejectCheckIn(UUID userId, UUID challengeId, UUID checkInId) {
-        FriendChallenge challenge = applyTransitionIfNeeded(
-                challengeRepository.findById(challengeId)
-                        .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId))
-        );
+        FriendChallenge challenge = loadVisibleChallenge(challengeId);
 
         if (!challenge.creatorId().equals(userId)) {
             throw new FriendChallengeAccessDeniedException();
@@ -128,11 +116,11 @@ public class CheckInService {
         FriendChallengeCheckIn checkIn = checkInRepository.findById(checkInId)
                 .filter(found -> found.challengeId().equals(challengeId))
                 .orElseThrow(CheckInNotFoundException::new);
-        if ("REJECTED".equals(checkIn.status())) {
+        if (FriendChallengeCheckIn.STATUS_REJECTED.equals(checkIn.status())) {
             throw new CheckInAlreadyRejectedException();
         }
 
-        return checkInRepository.updateStatus(checkInId, "REJECTED");
+        return checkInRepository.updateStatus(checkInId, FriendChallengeCheckIn.STATUS_REJECTED);
     }
 
     private List<RankingEntry> buildRanking(FriendChallenge challenge,
@@ -205,24 +193,13 @@ public class CheckInService {
         };
     }
 
-    private FriendChallenge applyTransitionIfNeeded(FriendChallenge challenge) {
-        if (!FriendChallenge.STATUS_ACTIVE.equals(challenge.status())
-                && !FriendChallenge.STATUS_AUDIT.equals(challenge.status())) {
-            return challenge;
+    private FriendChallenge loadVisibleChallenge(UUID challengeId) {
+        FriendChallenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId));
+        if (FriendChallenge.STATUS_DELETED.equals(challenge.status())) {
+            throw new FriendChallengeNotFoundException(challengeId);
         }
-
-        String nextStatus = challenge.status();
-        LocalDate today = LocalDate.now();
-        if (today.isAfter(challenge.endDate())) {
-            nextStatus = FriendChallenge.STATUS_FINISHED;
-        } else if (today.isEqual(challenge.endDate())) {
-            nextStatus = FriendChallenge.STATUS_AUDIT;
-        }
-
-        if (!nextStatus.equals(challenge.status())) {
-            challengeRepository.updateStatus(challenge.id(), nextStatus);
-            return challenge.withStatus(nextStatus);
-        }
-        return challenge;
+        return FriendChallengeLifecycle.applyTransitionIfNeeded(
+                challenge, challengeRepository, LocalDate.now());
     }
 }

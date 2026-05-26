@@ -11,6 +11,7 @@ import com.pacefriends.api.profile.domain.UserObjective;
 import com.pacefriends.api.profile.domain.WeeklyFrequency;
 import com.pacefriends.api.profile.domain.exception.ProfileAccessDeniedException;
 import com.pacefriends.api.profile.domain.exception.UserSettingsNotFoundException;
+import com.pacefriends.api.streak.application.UpdateWeeklyFrequencyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -45,6 +46,9 @@ class UserProfileControllerTest {
 
     @MockBean
     private ProfileService profileService;
+
+    @MockBean
+    private UpdateWeeklyFrequencyService updateWeeklyFrequencyService;
 
     private final UUID userId = UUID.randomUUID();
 
@@ -159,6 +163,38 @@ class UserProfileControllerTest {
                                 new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                                         UUID.randomUUID(), null, java.util.Collections.emptyList()))))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateFrequency_validRequest_returnsSundayEffectiveResponse() throws Exception {
+        when(updateWeeklyFrequencyService.update(eq(userId), eq(5)))
+                .thenReturn(new UpdateWeeklyFrequencyService.FrequencyUpdate(
+                        5, LocalDate.of(2026, 5, 31)));
+
+        mockMvc.perform(put("/api/v1/users/me/frequency")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "weeklyFrequency": 5 }
+                                """)
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(
+                                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                                        userId, null, java.util.Collections.emptyList()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weeklyFrequency").value(5))
+                .andExpect(jsonPath("$.effectiveFrom").value("2026-05-31"));
+    }
+
+    @Test
+    void updateFrequency_outsideAllowedRange_returns400() throws Exception {
+        mockMvc.perform(put("/api/v1/users/me/frequency")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "weeklyFrequency": 8 }
+                                """)
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(
+                                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                                        userId, null, java.util.Collections.emptyList()))))
+                .andExpect(status().isBadRequest());
     }
 
     private ProfileData buildProfileData(UUID userId) {

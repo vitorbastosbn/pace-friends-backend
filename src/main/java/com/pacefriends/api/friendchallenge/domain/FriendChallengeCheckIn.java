@@ -16,4 +16,8 @@ public record FriendChallengeCheckIn(
         String status,
         OffsetDateTime createdAt
 ) {
+    public static final String STATUS_VALID = "VALID";
+    public static final String STATUS_REJECTED = "REJECTED";
+    public static final String STATUS_REMOVED_BY_LEAVE = "REMOVED_BY_LEAVE";
+    public static final String STATUS_REMOVED_BY_DELETE = "REMOVED_BY_DELETE";
 }

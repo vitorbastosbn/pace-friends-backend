@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -240,6 +242,63 @@ class FriendChallengeControllerTest {
                 .thenThrow(new FriendChallengeNotFoundException(challengeId));
 
         mockMvc.perform(get("/api/v1/friend-challenges/{id}", challengeId)
+                        .with(authAs(userId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("not_found"));
+    }
+
+    @Test
+    void leaveChallenge_member_returns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/friend-challenges/{id}/participants/me", challengeId)
+                        .with(authAs(userId)))
+                .andExpect(status().isNoContent());
+
+        verify(friendChallengeService).leaveChallenge(userId, challengeId);
+    }
+
+    @Test
+    void leaveChallenge_unauthenticated_returns403() throws Exception {
+        mockMvc.perform(delete("/api/v1/friend-challenges/{id}/participants/me", challengeId))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void leaveChallenge_inactiveChallenge_returns400() throws Exception {
+        doThrow(new ChallengeNotActiveException())
+                .when(friendChallengeService).leaveChallenge(any(), eq(challengeId));
+
+        mockMvc.perform(delete("/api/v1/friend-challenges/{id}/participants/me", challengeId)
+                        .with(authAs(userId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("challenge_not_active"));
+    }
+
+    @Test
+    void deleteChallenge_creator_returns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/friend-challenges/{id}", challengeId)
+                        .with(authAs(userId)))
+                .andExpect(status().isNoContent());
+
+        verify(friendChallengeService).deleteChallenge(userId, challengeId);
+    }
+
+    @Test
+    void deleteChallenge_notCreator_returns403() throws Exception {
+        doThrow(new FriendChallengeAccessDeniedException())
+                .when(friendChallengeService).deleteChallenge(any(), eq(challengeId));
+
+        mockMvc.perform(delete("/api/v1/friend-challenges/{id}", challengeId)
+                        .with(authAs(userId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("access_denied"));
+    }
+
+    @Test
+    void deleteChallenge_alreadyDeleted_returns404() throws Exception {
+        doThrow(new FriendChallengeNotFoundException(challengeId))
+                .when(friendChallengeService).deleteChallenge(any(), eq(challengeId));
+
+        mockMvc.perform(delete("/api/v1/friend-challenges/{id}", challengeId)
                         .with(authAs(userId)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("not_found"));

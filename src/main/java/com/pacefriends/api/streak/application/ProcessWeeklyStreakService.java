@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -24,21 +23,28 @@ public class ProcessWeeklyStreakService {
     private final UserSettingsRepository userSettingsRepository;
     private final ActivityRepository activityRepository;
     private final WeeklyStreakRepository weeklyStreakRepository;
+    private final WeeklyStreakProcessor weeklyStreakProcessor;
 
     public ProcessWeeklyStreakService(UserRepository userRepository,
                                       UserSettingsRepository userSettingsRepository,
                                       ActivityRepository activityRepository,
-                                      WeeklyStreakRepository weeklyStreakRepository) {
+                                      WeeklyStreakRepository weeklyStreakRepository,
+                                      WeeklyStreakProcessor weeklyStreakProcessor) {
         this.userRepository = userRepository;
         this.userSettingsRepository = userSettingsRepository;
         this.activityRepository = activityRepository;
         this.weeklyStreakRepository = weeklyStreakRepository;
+        this.weeklyStreakProcessor = weeklyStreakProcessor;
     }
 
     @Transactional
     public void process(UUID userId, LocalDate processedSunday) {
         LocalDate weekStart = processedSunday.minusWeeks(1);
         LocalDate weekEnd = processedSunday.minusDays(1);
+
+        if (weeklyStreakRepository.findByUserIdAndWeekStart(userId, weekStart).isPresent()) {
+            return;
+        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
@@ -48,18 +54,16 @@ public class ProcessWeeklyStreakService {
                 .map(WeeklyFrequency::getValue)
                 .orElse(WeeklyFrequency.THREE.getValue());
 
-        Set<LocalDate> activityDates = activityRepository.findActivityDatesByUserInWeek(userId, weekStart, weekEnd);
-        int daysCompleted = activityDates.size();
+        int daysCompleted = activityRepository.countUniqueDaysByUserInWeek(userId, weekStart, weekEnd);
+        WeeklyStreakProcessor.ProcessingResult processing = weeklyStreakProcessor.process(
+                targetFrequency, daysCompleted, user.getCurrentStreak());
 
-        StreakResult result = StreakCalculator.calculate(daysCompleted, targetFrequency);
-        int xpDelta = StreakCalculator.xpDelta(targetFrequency, result);
-
-        if (result == StreakResult.MAINTAINED) {
+        if (processing.result() == StreakResult.MAINTAINED) {
             user.incrementStreak();
         } else {
             user.resetStreak();
         }
-        user.addXp(xpDelta);
+        user.addXp(processing.xpEarned());
 
         userRepository.save(user);
 
@@ -69,8 +73,8 @@ public class ProcessWeeklyStreakService {
                 .targetFrequency(targetFrequency)
                 .daysCompleted(daysCompleted)
                 .streakCount(user.getCurrentStreak())
-                .xpEarned(xpDelta)
-                .result(result)
+                .xpEarned(processing.xpEarned())
+                .result(processing.result())
                 .processedAt(LocalDateTime.now())
                 .build();
 

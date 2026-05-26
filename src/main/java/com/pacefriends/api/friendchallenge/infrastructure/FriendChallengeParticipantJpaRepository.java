@@ -12,4 +12,5 @@ public interface FriendChallengeParticipantJpaRepository extends JpaRepository<F
     boolean existsByFriendChallengeIdAndUserId(UUID friendChallengeId, UUID userId);
     int countByFriendChallengeId(UUID friendChallengeId);
     Optional<FriendChallengeParticipantEntity> findByFriendChallengeIdAndUserId(UUID friendChallengeId, UUID userId);
+    void deleteByFriendChallengeIdAndUserId(UUID friendChallengeId, UUID userId);
 }

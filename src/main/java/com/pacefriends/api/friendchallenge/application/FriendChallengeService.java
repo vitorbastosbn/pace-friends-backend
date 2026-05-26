@@ -2,6 +2,8 @@ package com.pacefriends.api.friendchallenge.application;
 
 import com.pacefriends.api.friendchallenge.domain.ChallengeType;
 import com.pacefriends.api.friendchallenge.domain.FriendChallenge;
+import com.pacefriends.api.friendchallenge.domain.FriendChallengeCheckIn;
+import com.pacefriends.api.friendchallenge.domain.FriendChallengeCheckInRepository;
 import com.pacefriends.api.friendchallenge.domain.FriendChallengeParticipant;
 import com.pacefriends.api.friendchallenge.domain.FriendChallengeRepository;
 import com.pacefriends.api.friendchallenge.domain.ParticipantRole;
@@ -34,14 +36,17 @@ public class FriendChallengeService {
     private static final int MAX_INVITE_CODE_RETRIES = 3;
 
     private final FriendChallengeRepository friendChallengeRepository;
+    private final FriendChallengeCheckInRepository checkInRepository;
     private final FriendChallengeParticipantJpaRepository participantJpaRepository;
     private final UserRepository userRepository;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public FriendChallengeService(FriendChallengeRepository friendChallengeRepository,
+                                   FriendChallengeCheckInRepository checkInRepository,
                                    FriendChallengeParticipantJpaRepository participantJpaRepository,
                                    UserRepository userRepository) {
         this.friendChallengeRepository = friendChallengeRepository;
+        this.checkInRepository = checkInRepository;
         this.participantJpaRepository = participantJpaRepository;
         this.userRepository = userRepository;
     }
@@ -101,9 +106,11 @@ public class FriendChallengeService {
 
     @Transactional
     public FriendChallenge joinChallenge(UUID userId, String inviteCode) {
-        FriendChallenge challenge = applyTransitionIfNeeded(
+        FriendChallenge challenge = FriendChallengeLifecycle.applyTransitionIfNeeded(
                 friendChallengeRepository.findByInviteCode(inviteCode)
-                        .orElseThrow(InvalidInviteCodeException::new)
+                        .orElseThrow(InvalidInviteCodeException::new),
+                friendChallengeRepository,
+                LocalDate.now()
         );
 
         if (!FriendChallenge.STATUS_ACTIVE.equals(challenge.status())) {
@@ -134,18 +141,47 @@ public class FriendChallengeService {
     }
 
     @Transactional
+    public void leaveChallenge(UUID userId, UUID challengeId) {
+        FriendChallenge challenge = loadVisibleChallenge(challengeId);
+        if (!FriendChallenge.STATUS_ACTIVE.equals(challenge.status())) {
+            throw new ChallengeNotActiveException();
+        }
+
+        FriendChallengeParticipantEntity participation = participantJpaRepository
+                .findByFriendChallengeIdAndUserId(challengeId, userId)
+                .orElseThrow(FriendChallengeAccessDeniedException::new);
+        if (!ParticipantRole.MEMBER.name().equals(participation.getRole())) {
+            throw new FriendChallengeAccessDeniedException();
+        }
+
+        checkInRepository.updateStatusByChallengeIdAndUserId(
+                challengeId, userId, FriendChallengeCheckIn.STATUS_REMOVED_BY_LEAVE);
+        participantJpaRepository.deleteByFriendChallengeIdAndUserId(challengeId, userId);
+    }
+
+    @Transactional
+    public void deleteChallenge(UUID userId, UUID challengeId) {
+        FriendChallenge challenge = loadVisibleChallenge(challengeId);
+        if (!challenge.creatorId().equals(userId)) {
+            throw new FriendChallengeAccessDeniedException();
+        }
+
+        friendChallengeRepository.updateStatus(challengeId, FriendChallenge.STATUS_DELETED);
+        checkInRepository.updateStatusByChallengeId(
+                challengeId, FriendChallengeCheckIn.STATUS_REMOVED_BY_DELETE);
+    }
+
+    @Transactional
     public List<FriendChallenge> listChallenges(UUID userId) {
         return friendChallengeRepository.findAllByUserId(userId).stream()
-                .map(this::applyTransitionIfNeeded)
+                .map(challenge -> FriendChallengeLifecycle.applyTransitionIfNeeded(
+                        challenge, friendChallengeRepository, LocalDate.now()))
                 .toList();
     }
 
     @Transactional
     public FriendChallengeDetailView getChallengeDetail(UUID userId, UUID challengeId) {
-        FriendChallenge challenge = applyTransitionIfNeeded(
-                friendChallengeRepository.findById(challengeId)
-                        .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId))
-        );
+        FriendChallenge challenge = loadVisibleChallenge(challengeId);
 
         List<FriendChallengeParticipantEntity> participantEntities =
                 participantJpaRepository.findAllByFriendChallengeId(challengeId);
@@ -169,25 +205,14 @@ public class FriendChallengeService {
         return new FriendChallengeDetailView(detailed, participants);
     }
 
-    private FriendChallenge applyTransitionIfNeeded(FriendChallenge challenge) {
-        if (!FriendChallenge.STATUS_ACTIVE.equals(challenge.status())
-                && !FriendChallenge.STATUS_AUDIT.equals(challenge.status())) {
-            return challenge;
+    private FriendChallenge loadVisibleChallenge(UUID challengeId) {
+        FriendChallenge challenge = friendChallengeRepository.findById(challengeId)
+                .orElseThrow(() -> new FriendChallengeNotFoundException(challengeId));
+        if (FriendChallenge.STATUS_DELETED.equals(challenge.status())) {
+            throw new FriendChallengeNotFoundException(challengeId);
         }
-
-        String nextStatus = challenge.status();
-        LocalDate today = LocalDate.now();
-        if (today.isAfter(challenge.endDate())) {
-            nextStatus = FriendChallenge.STATUS_FINISHED;
-        } else if (today.isEqual(challenge.endDate())) {
-            nextStatus = FriendChallenge.STATUS_AUDIT;
-        }
-
-        if (!nextStatus.equals(challenge.status())) {
-            friendChallengeRepository.updateStatus(challenge.id(), nextStatus);
-            return challenge.withStatus(nextStatus);
-        }
-        return challenge;
+        return FriendChallengeLifecycle.applyTransitionIfNeeded(
+                challenge, friendChallengeRepository, LocalDate.now());
     }
 
     private List<FriendChallengeParticipant> buildParticipantList(

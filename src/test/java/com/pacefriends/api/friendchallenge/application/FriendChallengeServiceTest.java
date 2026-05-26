@@ -33,6 +33,9 @@ class FriendChallengeServiceTest {
     private FriendChallengeRepository friendChallengeRepository;
 
     @Mock
+    private FriendChallengeCheckInRepository checkInRepository;
+
+    @Mock
     private FriendChallengeParticipantJpaRepository participantJpaRepository;
 
     @Mock
@@ -198,6 +201,86 @@ class FriendChallengeServiceTest {
                 .isInstanceOf(AlreadyParticipantException.class);
     }
 
+    // --- leaveChallenge ---
+
+    @Test
+    void leaveChallenge_memberInActiveChallenge_removesMembershipAndCheckIns() {
+        UUID memberId = UUID.randomUUID();
+        FriendChallenge challenge = buildChallenge(challengeId, FriendChallenge.STATUS_ACTIVE);
+        FriendChallengeParticipantEntity participation = mock(FriendChallengeParticipantEntity.class);
+        when(participation.getRole()).thenReturn(ParticipantRole.MEMBER.name());
+        when(friendChallengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+        when(participantJpaRepository.findByFriendChallengeIdAndUserId(challengeId, memberId))
+                .thenReturn(Optional.of(participation));
+
+        service.leaveChallenge(memberId, challengeId);
+
+        verify(checkInRepository).updateStatusByChallengeIdAndUserId(
+                challengeId, memberId, FriendChallengeCheckIn.STATUS_REMOVED_BY_LEAVE);
+        verify(participantJpaRepository).deleteByFriendChallengeIdAndUserId(challengeId, memberId);
+    }
+
+    @Test
+    void leaveChallenge_creator_isDenied() {
+        FriendChallenge challenge = buildChallenge(challengeId, FriendChallenge.STATUS_ACTIVE);
+        FriendChallengeParticipantEntity participation = mock(FriendChallengeParticipantEntity.class);
+        when(participation.getRole()).thenReturn(ParticipantRole.CREATOR.name());
+        when(friendChallengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+        when(participantJpaRepository.findByFriendChallengeIdAndUserId(challengeId, creatorId))
+                .thenReturn(Optional.of(participation));
+
+        assertThatThrownBy(() -> service.leaveChallenge(creatorId, challengeId))
+                .isInstanceOf(FriendChallengeAccessDeniedException.class);
+        verify(checkInRepository, never()).updateStatusByChallengeIdAndUserId(any(), any(), any());
+    }
+
+    @Test
+    void leaveChallenge_afterAudit_isRejectedWithoutRemovingParticipation() {
+        FriendChallenge challenge = buildChallenge(challengeId, FriendChallenge.STATUS_AUDIT);
+        when(friendChallengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+
+        assertThatThrownBy(() -> service.leaveChallenge(UUID.randomUUID(), challengeId))
+                .isInstanceOf(ChallengeNotActiveException.class);
+        verifyNoInteractions(checkInRepository);
+        verify(participantJpaRepository, never()).deleteByFriendChallengeIdAndUserId(any(), any());
+    }
+
+    // --- deleteChallenge ---
+
+    @Test
+    void deleteChallenge_creator_marksChallengeAndCheckInsDeleted() {
+        when(friendChallengeRepository.findById(challengeId))
+                .thenReturn(Optional.of(buildChallenge(challengeId, FriendChallenge.STATUS_ACTIVE)));
+
+        service.deleteChallenge(creatorId, challengeId);
+
+        verify(friendChallengeRepository).updateStatus(challengeId, FriendChallenge.STATUS_DELETED);
+        verify(checkInRepository).updateStatusByChallengeId(
+                challengeId, FriendChallengeCheckIn.STATUS_REMOVED_BY_DELETE);
+    }
+
+    @Test
+    void deleteChallenge_member_isDenied() {
+        when(friendChallengeRepository.findById(challengeId))
+                .thenReturn(Optional.of(buildChallenge(challengeId, FriendChallenge.STATUS_ACTIVE)));
+
+        assertThatThrownBy(() -> service.deleteChallenge(UUID.randomUUID(), challengeId))
+                .isInstanceOf(FriendChallengeAccessDeniedException.class);
+        verify(friendChallengeRepository, never()).updateStatus(challengeId, FriendChallenge.STATUS_DELETED);
+        verifyNoInteractions(checkInRepository);
+    }
+
+    @Test
+    void deleteChallenge_alreadyDeleted_isNotAccessible() {
+        when(friendChallengeRepository.findById(challengeId))
+                .thenReturn(Optional.of(buildChallenge(challengeId, FriendChallenge.STATUS_DELETED)));
+
+        assertThatThrownBy(() -> service.deleteChallenge(creatorId, challengeId))
+                .isInstanceOf(FriendChallengeNotFoundException.class);
+        verify(friendChallengeRepository, never()).updateStatus(any(), anyString());
+        verifyNoInteractions(checkInRepository);
+    }
+
     // --- getChallengeDetail ---
 
     @Test
@@ -217,6 +300,16 @@ class FriendChallengeServiceTest {
 
         assertThatThrownBy(() -> service.getChallengeDetail(creatorId, challengeId))
                 .isInstanceOf(FriendChallengeNotFoundException.class);
+    }
+
+    @Test
+    void getChallengeDetail_deletedChallenge_isNotAccessible() {
+        when(friendChallengeRepository.findById(challengeId))
+                .thenReturn(Optional.of(buildChallenge(challengeId, FriendChallenge.STATUS_DELETED)));
+
+        assertThatThrownBy(() -> service.getChallengeDetail(creatorId, challengeId))
+                .isInstanceOf(FriendChallengeNotFoundException.class);
+        verifyNoInteractions(participantJpaRepository);
     }
 
     @Test

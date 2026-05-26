@@ -5,6 +5,7 @@ import com.pacefriends.api.streak.domain.WeeklyStreakRepository;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,6 +27,19 @@ public class WeeklyStreakRepositoryImpl implements WeeklyStreakRepository {
     @Override
     public Optional<WeeklyStreak> findByUserIdAndWeekStart(UUID userId, LocalDate weekStart) {
         return jpaRepository.findByUserIdAndWeekStartDate(userId, weekStart)
+                .map(WeeklyStreakMapper::toDomain);
+    }
+
+    @Override
+    public List<WeeklyStreak> findByUserId(UUID userId) {
+        return jpaRepository.findByUserIdOrderByWeekStartDateDesc(userId).stream()
+                .map(WeeklyStreakMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public Optional<WeeklyStreak> findRecentByUserId(UUID userId) {
+        return jpaRepository.findFirstByUserIdOrderByWeekStartDateDesc(userId)
                 .map(WeeklyStreakMapper::toDomain);
     }
 }

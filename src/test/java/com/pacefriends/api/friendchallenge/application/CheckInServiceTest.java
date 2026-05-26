@@ -138,7 +138,7 @@ class CheckInServiceTest {
         FriendChallenge challenge = buildChallenge(ChallengeType.CHECK_IN, BigDecimal.ONE);
         when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
         when(participantJpaRepository.existsByFriendChallengeIdAndUserId(challengeId, userId)).thenReturn(true);
-        when(checkInRepository.existsByChallengeIdAndUserIdAndDate(challengeId, userId, today)).thenReturn(true);
+        when(checkInRepository.existsValidByChallengeIdAndUserIdAndDate(challengeId, userId, today)).thenReturn(true);
 
         assertThatThrownBy(() -> service.registerCheckIn(userId, challengeId, 5.0, 1800, today, null))
                 .isInstanceOf(DuplicateCheckInException.class)
@@ -156,7 +156,7 @@ class CheckInServiceTest {
         // No exception should be thrown for non-CHECK_IN type
         assertThatCode(() -> service.registerCheckIn(userId, challengeId, 5.0, 1800, today, null))
                 .doesNotThrowAnyException();
-        verify(checkInRepository, never()).existsByChallengeIdAndUserIdAndDate(any(), any(), any());
+        verify(checkInRepository, never()).existsValidByChallengeIdAndUserIdAndDate(any(), any(), any());
     }
 
     // --- listCheckIns ---
@@ -188,6 +188,28 @@ class CheckInServiceTest {
 
         assertThatThrownBy(() -> service.listCheckIns(userId, challengeId))
                 .isInstanceOf(FriendChallengeAccessDeniedException.class);
+    }
+
+    @Test
+    void listCheckIns_deletedChallenge_isNotAccessible() {
+        FriendChallenge challenge = buildChallenge(
+                ChallengeType.DISTANCE, BigDecimal.valueOf(50), endDate, FriendChallenge.STATUS_DELETED);
+        when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+
+        assertThatThrownBy(() -> service.listCheckIns(userId, challengeId))
+                .isInstanceOf(FriendChallengeNotFoundException.class);
+    }
+
+    @Test
+    void registerCheckIn_deletedChallenge_isNotAccessible() {
+        FriendChallenge challenge = buildChallenge(
+                ChallengeType.DISTANCE, BigDecimal.valueOf(50), endDate, FriendChallenge.STATUS_DELETED);
+        when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+
+        assertThatThrownBy(() -> service.registerCheckIn(
+                userId, challengeId, 5.0, 1800, today, null))
+                .isInstanceOf(FriendChallengeNotFoundException.class);
+        verify(checkInRepository, never()).save(any());
     }
 
     // --- rejectCheckIn ---
@@ -300,6 +322,32 @@ class CheckInServiceTest {
             assertThat(entry.score()).isEqualTo(5.0);
             assertThat(entry.checkInCount()).isEqualTo(1);
         });
+    }
+
+    @Test
+    void getRanking_removedCheckIns_doNotCountAfterRejoin() {
+        FriendChallenge challenge = buildChallenge(ChallengeType.DISTANCE, BigDecimal.valueOf(5));
+        when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+        when(participantJpaRepository.existsByFriendChallengeIdAndUserId(challengeId, userId)).thenReturn(true);
+
+        FriendChallengeCheckIn removed = new FriendChallengeCheckIn(
+                UUID.randomUUID(), challengeId, userId, 20.0, 7200, 360,
+                today, null, FriendChallengeCheckIn.STATUS_REMOVED_BY_LEAVE, OffsetDateTime.now());
+        when(checkInRepository.findAllByChallengeId(challengeId)).thenReturn(List.of(removed));
+
+        RankingView ranking = service.getRanking(userId, challengeId);
+
+        assertThat(ranking.entries()).isEmpty();
+    }
+
+    @Test
+    void getRanking_deletedChallenge_isNotAccessible() {
+        FriendChallenge challenge = buildChallenge(
+                ChallengeType.DISTANCE, BigDecimal.valueOf(5), endDate, FriendChallenge.STATUS_DELETED);
+        when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+
+        assertThatThrownBy(() -> service.getRanking(userId, challengeId))
+                .isInstanceOf(FriendChallengeNotFoundException.class);
     }
 
     // --- getRanking ACTIVITY_TIME ---
