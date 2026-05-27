@@ -61,7 +61,13 @@ class TrailControllerTest {
                 .andExpect(jsonPath("$.path.items[0].status").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.path.items[0].xpReward").value(10))
                 .andExpect(jsonPath("$.path.items[1].status").value("LOCKED"))
-                .andExpect(jsonPath("$.canLevelUp").value(false));
+                .andExpect(jsonPath("$.path.items[1].xpReward").value(20))
+                .andExpect(jsonPath("$.canLevelUp").value(false))
+                .andExpect(jsonPath("$.nextLevelRequirements.pathCompleted").value(false))
+                .andExpect(jsonPath("$.nextLevelRequirements.streakWeeksRequired").value(4))
+                .andExpect(jsonPath("$.nextLevelRequirements.streakWeeksCompleted").value(0))
+                .andExpect(jsonPath("$.nextLevelRequirements.xpRequired").value(650))
+                .andExpect(jsonPath("$.nextLevelRequirements.xpCurrent").value(0));
     }
 
     @Test
