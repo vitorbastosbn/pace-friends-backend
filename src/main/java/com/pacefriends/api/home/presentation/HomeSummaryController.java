@@ -2,6 +2,7 @@ package com.pacefriends.api.home.presentation;
 
 import com.pacefriends.api.home.application.HomeSummaryService;
 import com.pacefriends.api.home.domain.HomeSummary;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+@Tag(name = "Home")
 @RestController
 @RequestMapping("/api/v1/users/{userId}/home-summary")
 public class HomeSummaryController {

@@ -11,4 +11,6 @@ public interface FriendChallengeRepository {
     boolean existsByInviteCode(String inviteCode);
     List<FriendChallenge> findAllByUserId(UUID userId);
     void updateStatus(UUID id, String status);
+    List<FriendChallenge> findArchivedByUserIdPaged(UUID userId, int page, int size);
+    long countArchivedByUserId(UUID userId);
 }

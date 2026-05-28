@@ -83,4 +83,20 @@ public class FriendChallengeRepositoryImpl implements FriendChallengeRepository 
         entity.setStatus(status);
         jpaRepository.save(entity);
     }
+
+    @Override
+    public List<FriendChallenge> findArchivedByUserIdPaged(UUID userId, int page, int size) {
+        int offset = page * size;
+        return jpaRepository.findArchivedByUserId(userId, size, offset).stream()
+                .map(entity -> {
+                    int count = participantJpaRepository.countByFriendChallengeId(entity.getId());
+                    return FriendChallengeMapper.toDomain(entity, count, null);
+                })
+                .toList();
+    }
+
+    @Override
+    public long countArchivedByUserId(UUID userId) {
+        return jpaRepository.countArchivedByUserId(userId);
+    }
 }

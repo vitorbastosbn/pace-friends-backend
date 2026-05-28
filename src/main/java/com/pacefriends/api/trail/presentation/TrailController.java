@@ -3,12 +3,14 @@ package com.pacefriends.api.trail.presentation;
 import com.pacefriends.api.trail.application.TrailService;
 import com.pacefriends.api.trail.domain.LevelUpResult;
 import com.pacefriends.api.trail.domain.TrainingPathData;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Training Path")
 @RestController
 @RequestMapping("/api/v1/users/{userId}/training-path")
 public class TrailController {

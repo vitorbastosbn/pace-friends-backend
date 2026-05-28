@@ -32,6 +32,8 @@ import java.util.UUID;
 @Service
 public class FriendChallengeService {
 
+    public record HistoryPage(List<FriendChallenge> challenges, long totalElements, boolean hasNext) {}
+
     private static final String INVITE_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int INVITE_CODE_LENGTH = 8;
     private static final int MAX_PARTICIPANTS = 5;
@@ -179,6 +181,14 @@ public class FriendChallengeService {
         return friendChallengeRepository.findAllByUserId(userId).stream()
                 .map(this::applyLifecycle)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public HistoryPage listHistory(UUID userId, int page, int size) {
+        List<FriendChallenge> challenges = friendChallengeRepository.findArchivedByUserIdPaged(userId, page, size);
+        long total = friendChallengeRepository.countArchivedByUserId(userId);
+        boolean hasNext = (long) (page + 1) * size < total;
+        return new HistoryPage(challenges, total, hasNext);
     }
 
     @Transactional

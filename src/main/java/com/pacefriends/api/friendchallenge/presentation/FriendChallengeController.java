@@ -4,6 +4,7 @@ import com.pacefriends.api.friendchallenge.application.FriendChallengeDetailView
 import com.pacefriends.api.friendchallenge.application.FriendChallengeService;
 import com.pacefriends.api.friendchallenge.application.CheckInService;
 import com.pacefriends.api.friendchallenge.domain.FriendChallenge;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "Friend Challenges")
 @RestController
 @RequestMapping("/api/v1/friend-challenges")
 public class FriendChallengeController {
@@ -50,6 +52,24 @@ public class FriendChallengeController {
 
         FriendChallenge challenge = friendChallengeService.joinChallenge(userId, request.inviteCode());
         return ResponseEntity.ok(FriendChallengeResponse.from(challenge));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<FriendChallengeHistoryPageResponse> listHistory(
+            @AuthenticationPrincipal UUID userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        FriendChallengeService.HistoryPage historyPage = friendChallengeService.listHistory(userId, page, size);
+        FriendChallengeHistoryPageResponse response = FriendChallengeHistoryPageResponse.from(
+                historyPage, page, size,
+                challenge -> checkInService.getRanking(userId, challenge.id()).entries().stream()
+                        .filter(entry -> userId.equals(entry.userId()))
+                        .map(entry -> entry.position())
+                        .findFirst()
+                        .orElse(null)
+        );
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping

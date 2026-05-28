@@ -7,6 +7,7 @@ import com.pacefriends.api.profile.domain.ProfileData;
 import com.pacefriends.api.streak.application.UpdateWeeklyFrequencyService;
 import com.pacefriends.api.streak.presentation.UpdateFrequencyRequest;
 import com.pacefriends.api.streak.presentation.UpdateFrequencyResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Users")
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserProfileController {

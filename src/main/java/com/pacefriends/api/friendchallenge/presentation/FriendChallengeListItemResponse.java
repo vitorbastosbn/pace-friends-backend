@@ -14,6 +14,7 @@ public record FriendChallengeListItemResponse(
         @JsonProperty("start_date") LocalDate startDate,
         @JsonProperty("end_date") LocalDate endDate,
         @JsonProperty("participant_count") int participantCount,
+        @JsonProperty("max_participants") int maxParticipants,
         @JsonProperty("user_role") ParticipantRole userRole,
         @JsonProperty("user_rank_position") Integer userRankPosition
 ) {
@@ -25,6 +26,7 @@ public record FriendChallengeListItemResponse(
                 challenge.startDate(),
                 challenge.endDate(),
                 challenge.participantCount(),
+                challenge.maxParticipants(),
                 challenge.myRole(),
                 userRankPosition
         );
